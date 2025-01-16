@@ -1,0 +1,655 @@
+--> MARK: Links
+
+local UI, Tab, Section, inSection = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/UI-Library") or game:HttpGet("https://astralhub.org/dev/UI-Library"))():Initiate()
+local debugMode = loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/debugMode") or game:HttpGet("https://astralhub.org/dev/debugMode"))()
+local supportedExecs = loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/supportedExecs") or game:HttpGet("https://astralhub.org/dev/supportedExecs"))()
+local Versions = loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/Versions") or game:HttpGet("https://astralhub.org/dev/Versions"))()
+local Maid = loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/Maid") or game:HttpGet("https://astralhub.org/dev/Maid"))()
+local banList = loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/banList") or game:HttpGet("https://astralhub.org/dev/banList"))()
+local developer = {"NightfallDeveloper", "NightfallDevelopment", "NightfallReboot", "AstralHubDevelopment", "AstralHubDevelopment", "Astra1Developer"}
+local Current = identifyexecutor()
+
+
+--> Metatables
+
+
+local indexMT; indexMT = function(self, index)
+    self[index] = setmetatable({}, {__index = indexMT})
+    return self[index]
+end
+
+
+local services = setmetatable({}, {
+    __index = function(self, index)
+        self[index] = game:GetService(index)
+        return self[index]
+    end
+})
+
+
+
+-- MARK: Variables
+
+
+local Astral = {}
+local player = services.Players.LocalPlayer
+local character = player.Character
+local humanoid = character.Humanoid
+local HRP = character.HumanoidRootPart
+local oldPosition = HRP.CFrame
+
+local Configuration = {
+
+    walkSpeed = 16,
+    sprintSpeed = 50,
+    sprintKey = "LeftShift",
+    jumpPower = 50,
+    FOV = 70,
+    zoomDistance = 140,
+    noClip = false,
+    antiAFK = false,
+    infiniteJump = false,
+    tpKey = "G",
+    hideChat = false,
+    isDiscordCopied = false,
+}
+
+
+
+--> Security
+
+
+local Time2 = tick()
+while tick() - Time2 <= 5 do if game:IsLoaded() then break end task.wait() end
+if tick() - Time2 > 5 then return warn("[Astral]: Ping too high to execute Astral") end
+
+if not developer and not table.find(supportedExecs, Current) then
+    return player:Kick("Executor Not Supported")
+end
+
+function Astral:checkVersion(Name, Current, Latest)
+    if Current ~= Latest then error(("%s is outdated. Current version: %s, Latest version: %s"):format(Name, Current, Latest)) end
+end
+
+Astral:checkVersion("Maid Version", Maid.Version, Versions.Maid)
+Astral:checkVersion("Script Version", Maid.ScriptVersion, Versions.Script)
+
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/Notify"))()
+local Notify = library.Notify;
+
+function Astral:ExecHandler()
+    if table.find(banList, services.Players:GetPlayerByUserId(player.UserId).Name) then
+        error("[Astral]: Banned from using this script")
+        player:Kick("Banned from using this script") return end
+
+        if not table.find(supportedExecs, Current) then
+            Notify({Description = Current .. " is not fully supported. Some features may not work";
+            Title = " Compatibility Warning";
+            Duration = 15;
+        });
+    end
+        if rconsoleprint then hookfunction(rconsoleprint, function()
+            player:Kick("Stop Using HTTP SPY")
+        end)
+    end
+end
+Astral:ExecHandler()
+
+
+
+--> MARK: Functions
+
+
+function Astral:log(...)
+    if player and table.find(developer, tostring(player)) then
+        print("[Astral]:", ...)
+    end
+end
+
+function Astral:debug(...)
+    if debugMode then
+        print("[Debug]:", ...)
+    end
+end
+
+if debugMode then
+    for v = 1, 50 do
+        print(" ")-- spam empty gaps our console to seperate old debug prints
+    end
+end
+
+
+function Astral:Teleport(position)
+    if typeof(position) == "CFrame" then
+    character:PivotTo(position)
+    elseif typeof(position) == "Vector3" then
+        character:MoveTo(position)
+    end
+    Astral:debug("Teleporting to:", tostring(position))
+end
+
+
+function Astral:fireRemote(Remote, ...)
+    local Remote = game.ReplicatedStorage:FindFirstChild(Remote)
+    if not Remote then
+        Astral:debug("Remote not found: " .. tostring(Remote))
+        return nil
+    end
+    if Remote:IsA("RemoteEvent") then
+        return Remote:FireServer(...)
+    elseif Remote:IsA("RemoteFunction") then
+        return Remote:InvokeServer(...)
+    else
+        Astral:debug("Unsupported remote type: " .. tostring(Remote.ClassName))
+        return nil
+    end
+end
+
+
+function Astral:isClientAlive()
+    if not character then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    return ((humanoid and humanoid.Health > 0) and humanoid)
+end
+
+
+function Astral:getTime()
+    local utc_time, est_time = os.time(os.date("!*t")), os.date("*t", os.time(os.date("!*t")) - 5 * 3600) -- Convert UTC to EST
+    local isAM = est_time.hour < 12
+    est_time.hour = est_time.hour % 12
+    est_time.hour = est_time.hour == 0 and 12 or est_time.hour
+    return string.format("%02d/%02d/%02d at: %02d:%02d %s (EST)", est_time.month, est_time.day, est_time.year % 100, est_time.hour, est_time.min, isAM and "AM" or "PM")
+end
+Astral:getTime()
+
+
+function Astral:fetchDevice()
+    local device = services.UserInputService:GetPlatform()
+    local platformName = "N/A"
+    if device == Enum.Platform.Windows then
+        platformName = "Windows"
+    elseif device == Enum.Platform.OSX then
+        platformName = "Mac"
+    elseif device == Enum.Platform.IOS then
+        platformName = "iOS"
+    elseif device == Enum.Platform.Android then
+        platformName = "Android"
+    elseif device == Enum.Platform.XBoxOne then
+        platformName = "Xbox One"
+    elseif device == Enum.Platform.PS4 then
+        platformName = "PS4"
+    end
+    return platformName
+end
+
+
+
+--> MARK: Client
+
+
+function Astral:updateValue(Type, Value)
+    Configuration[Type] = Value
+    humanoid[Type] = Value
+    Astral:debug("Updated " .. Type .. " to " .. tostring(Value))
+end
+
+
+local function SprintSpeed()
+    local sprintStart
+    local sprintEnd
+    if sprintStart then sprintStart:Disconnect() end
+    if sprintEnd then sprintEnd:Disconnect() end
+    
+    sprintStart = services.UserInputService.InputBegan:Connect(function(Input, Processed)
+        if not Processed and Input.KeyCode == Configuration.sprintKey then
+            Astral:updateValue("WalkSpeed", (Configuration.walkSpeed + Configuration.sprintSpeed))
+            Astral:debug("Sprinting | Config sprint speed: " .. tostring(Configuration.sprintSpeed))
+        end
+    end)
+
+    sprintEnd = services.UserInputService.InputEnded:Connect(function(Input, Processed)
+        if not Processed and Input.KeyCode == Configuration.sprintKey then
+            Astral:updateValue("WalkSpeed", Configuration.walkSpeed)
+            Astral:debug("Walking | Config walk speed: " .. tostring(Configuration.walkSpeed))
+        end
+    end)
+end
+
+player.CharacterAdded:Connect(function(char)
+    character = char
+    SprintSpeed()
+end)
+
+if player.Character then
+    character = player.Character
+    SprintSpeed()
+end
+
+
+function noclip(value)
+    if value then
+        for _, v in pairs(character:GetChildren()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    else
+        for _, v in pairs(character:GetChildren()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = true
+            end
+        end
+    end
+    Astral:debug("No Clip set to " .. tostring(value))
+end
+
+
+Maid:register("antiAFK", services.RunService.Stepped:Connect(function()
+    if Configuration.antiAFK then
+        Maid:register("antiAFK", player.Idled:Connect(function()
+            services.VirtualInputManager:Button2Down(Vector2.new(1, 1), workspace.CurrentCamera.CFrame)
+            services.VirtualInputManager:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        end))
+        Astral:debug("Anti-AFK set to " .. tostring(Configuration.antiAFK))
+    end
+end))
+
+
+Maid:register("Listener", services.RunService.Stepped:Connect(function()
+    if Configuration.infiniteJump then
+        if not Maid:verify("infiniteJump") then
+            Maid:register("infiniteJump", services.UserInputService.JumpRequest:Connect(function()
+                if character and character:FindFirstChildOfClass("Humanoid") then
+                    character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+                end
+            end))
+            Astral:debug("Infinite Jump enabled.")
+        end
+    else
+        if Maid:verify("infiniteJump") then
+            Maid:deregister("infiniteJump")
+            Astral:debug("Infinite Jump set to" .. tostring(Configuration.infiniteJump))
+        end
+    end
+end))
+
+
+
+--> MARK: Automation
+
+
+-- function Astral:getLocations()
+--     local locations = {}
+--     for location, position in pairs(wayPoints) do
+--         table.insert(locations, location)
+--     end
+--     return locations
+-- end
+
+function Astral:muteMusic(Value)
+    local args = {[1] = 5035,[2] = "MuteMusic",[3] = Value}
+    game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("5566AD9D-36FD-4495-8DF5-BFCB21C75537"):FireServer(unpack(args))
+end
+
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    character:WaitForChild("Humanoid").Died:Connect(function()
+        SprintSpeed()
+    end)
+end)
+
+
+
+--> MARK: Settings
+
+
+local function tpKey()
+    services.UserInputService.InputBegan:Connect(function(Input, Processed)
+        if not Processed and Input.KeyCode == Configuration.tpKey then
+            local mouse = player:GetMouse()
+            if mouse.Target then
+                Astral:Teleport(CFrame.new(mouse.Hit.p) + Vector3.new(0, 5, 0))
+            end
+        end
+    end)
+end
+
+
+
+--> MARK: Client Tab
+
+
+Tab = UI:CreateTab(1, "Client")
+inSection = Tab:CreateSection("Client")
+Section = inSection:CreateSubSection("Movement")
+
+
+Section:CreateSlider("Walk Speed", function(Value)
+    Configuration.walkSpeed = Value
+    Astral:updateValue("WalkSpeed", Value)
+end, 16, 100, 16, true, "Set the walkspeed of your character", "Player WalkSpeed")
+
+
+Section:CreateSlider("Jump Power", function(Value)
+    Configuration.JumpPower = Value
+    Astral:updateValue("JumpPower", Value)
+end, 50, 100, 50, true, "Set the jump power of your character", "Player JumpPower")
+
+
+Section:CreateSlider("Sprint Speed", function(Value)
+    Configuration.sprintSpeed = Value
+end, 50, 300, 50, true, "Set the speed of your sprint", "Sprint Speed")
+
+
+
+Section = inSection:CreateSubSection("Player")
+
+
+Section:CreateSlider("Zoom Distance", function(Value)
+    Configuration.zoomDistance = Value
+    player.CameraMaxZoomDistance = Value
+end, 140, 10000, 140, true, "Set the zoom distance of your character", "Player Distance")
+
+
+Section:CreateSlider("Field of View", function(Value)
+    Configuration.FOV = Value
+    workspace.CurrentCamera.FieldOfView = Configuration.FOV
+end, 70, 120, 70, true, "Set the field of view of your character", "Player FOV")
+
+
+Section:CreateToggle("Infinite Jump", false, function(Value)
+    Configuration.infiniteJump = Value
+end, Configuration.infiniteJump)
+
+
+Section:CreateToggle("No Clip", false, function(Value)
+    Configuration.noClip = Value
+end, Configuration.noClip)
+
+
+Section:CreateToggle("AntiAFK", false, function(Value)
+    Configuration.antiAFK = Value
+end, Configuration.antiAFK)
+
+Section:CreateButton("Suicide", function()-- temp
+    character:FindFirstChild("Head"):Destroy()
+end, false, true, "Kills your character")
+Section:CreateLabel("")
+
+--> MARK: Game Tab
+
+
+local gameTab = UI:CreateTab(1, "Game")
+inSection = gameTab:CreateSection("Game")
+
+
+
+Section = inSection:CreateSubSection("Teleports")
+
+
+-- Section:CreateDropDown(function(Value)
+--     Astral:Teleport(wayPoints[Value])
+-- end, Astral:getLocations(), "Teleport To Location", false)
+
+
+Section:CreateDropDown(function(Value)
+    Astral:Teleport(services.Players[Value].Character.HumanoidRootPart.Position)
+    print("Teleported to " .. services.Players[Value].Character.HumanoidRootPart.Position)
+end, {"Teleport To Player"}, "Teleport To Player", true)
+
+
+
+--> MARK: Settings Tab
+
+Tab = UI:CreateTab(1, "Settings")
+inSection = Tab:CreateSection("Settings")
+Section = inSection:CreateSubSection("Interface Options")
+
+
+Section:CreateKeybind("Toggle UI", function()
+    if game.CoreGui:FindFirstChild("Ancestor") then
+        game.CoreGui.Ancestor.Enabled = not game.CoreGui.Ancestor.Enabled
+    end
+end, Enum.KeyCode.LeftControl)
+
+
+
+Section = inSection:CreateSubSection("Script Options")
+
+
+
+Section:CreateKeybind("Sprint Key", function(Value)
+    Configuration.sprintKey = Value or Enum.KeyCode.LeftShift
+    SprintSpeed()
+    Astral:debug("Sprint bind set to " .. tostring(Configuration.sprintKey))
+end, Enum.KeyCode.LeftShift)
+
+Section:CreateKeybind("Teleport Key", function(Value)
+    Configuration.tpKey = Value or Enum.KeyCode.G
+    tpKey()
+    Astral:debug("tpKey bind set to " .. tostring(Configuration.tpKey))
+end, Enum.KeyCode.G)
+
+
+
+Section = inSection:CreateSubSection("Server Options")
+
+
+Section:CreateButton("Re-Join Server", function()
+    services.TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+end, false, true, "Rejoin the same server")
+
+
+Section:CreateButton("New Server", function()
+    services.TeleportService:Teleport(game.PlaceId)
+end, false, true, "Joins a random server")
+
+
+Section:CreateButton("Force Join Voice Chat", function()
+    services.VoiceChatService:joinVoice()
+end, false, true, "Can also be used to unban (may not always work)")
+
+
+
+local discordSection = inSection:CreateSubSection("Discord")
+
+
+discordSection:CreateButton("Join Discord Server", function()
+    setclipboard("https://discord.gg/meAXwxBN?event=1325916203985666121")
+
+    if not Configuration.isDiscordCopied then
+        Configuration.isDiscordCopied = true
+        local discordLabel = discordSection:CreateLabel("Discord Link Copied!")
+        discordLabel:SetColor(Color3.fromRGB(0, 255, 0))
+    end
+end, false, true, "Copied discord link to clipboard")
+
+
+
+Section = inSection:CreateSubSection("Other Options")
+
+
+Section:CreateButton("Re-Execute Script", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/Games/Latest") or game:HttpGet("https://astralhub.org/Games/Latest"))()
+end)
+
+Section:CreateToggle("Hide Chat", false, function(Value)
+    Configuration.hideChat = Value
+    if Configuration.hideChat then
+        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
+    else
+        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+    end
+end, Configuration.hideChat)
+
+
+Section:CreateSlider("Set FPS", function(Value)
+    setfpscap(Value)
+end, 60, 999, 60, true, "Sets FPS if executor supports 'setfpscap'", "Set FPS")
+
+
+
+Section = inSection:CreateSubSection("GUI Information")
+
+
+Section:CreateLabel("Developer: @itsjusnix")
+Section:CreateLabel("In Progress" .. " Version " .. Versions.Script)
+Section:CreateLabel("This script is currently under development")
+
+
+
+Section = inSection:CreateSubSection("Other Information")
+
+
+local pingLabel = Section:CreateLabel("Ping: " .. tostring(player:GetNetworkPing() * 1000) .. "ms" or "N/A")
+local cpuLabel = Section:CreateLabel("CPU: N/A")
+local fpsLabel = Section:CreateLabel("FPS: N/A")
+local deviceLabel = Section:CreateLabel("Device: " .. Astral:fetchDevice())
+local execLabel = Section:CreateLabel("Executor: " .. Current)
+
+local success, enabled = pcall(function()
+    return services.VoiceChatService:IsVoiceEnabledForUserIdAsync(player.UserId)
+end)
+
+Section:CreateLabel("Voice Chat: " .. (success and enabled and "Enabled" or "Disabled"))
+
+
+services.RunService.Heartbeat:Connect(function()
+    pingLabel:UpdateText("Ping: " .. tostring(math.floor(player:GetNetworkPing() * 1000)) .. "ms" or "N/A")
+end)
+
+services.RunService.Heartbeat:Connect(function()
+    repeat task.wait() until services.Stats.FrameRateManager
+    fpsLabel:UpdateText("FPS: " .. math.floor(services.Stats.FrameRateManager.AverageFPS:GetValue()))
+end)
+
+local lastUpdated = 0
+services.RunService.Heartbeat:Connect(function(Time)
+    lastUpdated += Time
+    if lastUpdated >= 0.5 then
+        lastUpdated = 0
+        repeat task.wait() until services.Stats.PerformanceStats.CPU
+        cpuLabel:UpdateText("CPU: " .. math.floor(services.Stats.PerformanceStats.CPU:GetValue()) .. "%" or "N/A")
+    end
+end)
+
+
+
+if table.find(developer, player.Name) then
+
+    Tab = UI:CreateTab(1, "Development")
+    inSection = Tab:CreateSection("To-Do List")
+    Section = inSection:CreateSubSection("To-Do List")
+
+    -- MARK: ToDo List
+
+    Section:CreateDropDown(function()
+    end, {"Fix sprintKey keybind", "add more features"}, "To-Do List", false)
+
+
+    Section:CreateButton("Print Configuration", function()
+        for i, v in pairs(Configuration) do
+            Astral:log(i, v)
+        end
+    end, false, true, "Outputs the current Configuration to console")
+
+
+
+    Section = inSection:CreateSubSection("Exploitation")
+
+
+    Section:CreateButton("Remote Spy", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/remoteSpy") or game:HttpGet("https://astralhub.org/dev/remoteSpy"))()
+    end, false, true, "Executes Remote Spy")
+
+
+    Section:CreateButton("Dex Explorer", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ItsEcstasy/Astral/refs/heads/main/dev/Dex") or game:HttpGet("https://astralhub.org/dev/Dex"))()
+    end, false, true, "Executes Dex Explorer")
+
+
+    Section:CreateButton("Get CFrame", function()
+        setclipboard(tostring(HRP.position))
+    end, false, true, "Copied your CFrame to clipboard")
+
+
+Section = inSection:CreateSubSection("Workspace")
+
+
+Section:CreateButton("Get Services", function()
+    for _, service in pairs(workspace:GetChildren()) do
+        Astral:log(service.Name)
+    end
+end, false, true, "Outputs game services to console")
+
+
+Section:CreateButton("Get Remotes", function()
+    for _, instance in pairs(game:GetDescendants()) do
+        if instance:IsA("RemoteEvent") or instance:IsA("RemoteFunction") then
+            Astral:log(instance:GetFullName())
+        end
+    end
+end, false, true, "Outputs game remotes to console")
+
+
+Section:CreateButton("Get Sounds", function()
+    for _, instance in pairs(game:GetDescendants()) do
+        if instance:IsA("Sound") then
+            print(instance:GetFullName())
+        end
+    end
+    
+end, false, true, "Outputs game sounds to console")
+end
+
+local serviceList = {}
+for _, service in ipairs(game:GetChildren()) do
+    table.insert(serviceList, service.Name)
+end
+
+local function buildTree(service, indent)
+    indent = indent or ""
+    local output = ""
+    for _, child in ipairs(service:GetChildren()) do
+        output = output .. indent .. "|-- " .. child.Name .. "\n"
+        output = output .. buildTree(child, indent .. "|   ")
+    end
+    return output
+end
+
+Section:CreateDropDown(function(Value)
+    local selectedService = game:GetService(Value)
+    local output = "Selected Service: " .. Value .. "\n"
+
+    local attributes = selectedService:GetAttributes()
+    if next(attributes) then
+        output = output .. "\nProperties:\n"
+        for property, value in pairs(attributes) do
+            output = output .. "|-- " .. property .. ": " .. tostring(value) .. "\n"
+        end
+    else
+        output = output .. "No attributes found.\n"
+    end
+
+    local children = selectedService:GetChildren()
+    if next(children) then
+        output = output .. "\nChildren:\n" .. buildTree(selectedService)
+    else
+        output = output .. "No children found.\n"
+    end
+
+    setclipboard(output)
+    print("Tree copied clipboard")
+end, serviceList, "Select Service", false)
+
+
+
+--> MARK: BOTTOM
+
+Astral:log(("Initialized in %.2f seconds via %s"):format(tick() - Time2, Current))
+
+humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+Maid:register("GUI_Removed", game.CoreGui.ChildRemoved:Connect(function(Child)
+    if tostring(Child):match("Ancestor") then
+        Maid:clearRegister()
+    end
+end))
